@@ -1,430 +1,184 @@
-# On-Call Constraints & Scheduling System - Setup Guide
+# On-Call Bot — Setup Guide
 
-This guide will help you set up the complete on-call scheduling system with Google Sheets integration.
-
-## 📋 Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Prerequisites](#prerequisites)
-3. [Part 1: Web App Setup](#part-1-web-app-setup)
-4. [Part 2: Google Sheets Setup](#part-2-google-sheets-setup)
-5. [Part 3: Running the System](#part-3-running-the-system)
-6. [Troubleshooting](#troubleshooting)
+This guide covers deploying the on-call bot on a remote Linux machine (company dev server, EC2, etc.).
 
 ---
 
-## System Overview
+## How It Works
 
-The system consists of three main components:
+You run **one process** (`scheduler.js`) and it handles everything automatically:
 
-1. **Web Interface** - Developers fill in their monthly constraints
-2. **Node.js Backend** - Manages data in `constraints.json`
-3. **Python Script** - Generates schedule and uploads to Google Sheets with color coding
+| When | What happens |
+|------|-------------|
+| 6 days before month end | Constraints reset — ready for next month |
+| 5–2 days before month end | Web app starts, daily Slack reminder sent to team |
+| Second-to-last day (10:30) | Last-chance Slack reminder |
+| Second-to-last day (17:00) | Schedule generated, results sent to Slack, app stops |
 
-### File Structure
+---
+
+## File Structure
 
 ```
-ohad_tools/
+on-call-bot/
 ├── constraints-app/
-│   ├── server.js                    # Backend API server
-│   ├── package.json                 # Node.js dependencies
+│   ├── scheduler.js          # Main daemon — the only process to keep running
+│   ├── server.js             # Web server (started/stopped automatically by scheduler)
+│   ├── package.json
 │   └── public/
-│       └── index.html               # Web interface
+│       ├── index.html
+│       └── ripple-icon.jpg
 ├── data/
-│   └── constraints.json             # Shared data file (auto-created)
-├── on_call_scheduler_with_sheets.py # Main scheduling script
-├── on_call_2.py                     # Original script (preserved)
-├── config.json                      # Google Sheets configuration
-├── google-credentials.json          # Google API credentials (you'll create this)
-├── requirements.txt                 # Python dependencies
-└── SETUP.md                         # This file
+│   └── constraints.json      # Auto-created on first run
+├── output/                   # Generated schedules (auto-created)
+├── docs/
+├── on_call_scheduler_with_sheets.py
+├── requirements.txt
+├── config.json               # Google Sheets config (create from template, never commit)
+├── config.json.template
+├── scheduler-config.json     # Slack + app URL config (create from template, never commit)
+└── scheduler-config.json.template
 ```
 
 ---
 
 ## Prerequisites
 
-### Required Software
-
-- **Node.js** (v16 or higher)
-  - Check: `node --version`
-  - Install: https://nodejs.org/
-
-- **Python** (v3.8 or higher)
-  - Check: `python3 --version`
-  - Install: https://www.python.org/
-
-- **pip** (Python package manager)
-  - Check: `pip3 --version`
-
-### Required Accounts
-
-- **Google Account** with access to Google Drive and Google Sheets
+- **Node.js** v16+: `node --version`
+- **Python** 3.8+: `python3 --version`
+- **pm2**: `npm install -g pm2`
 
 ---
 
-## Part 1: Web App Setup
-
-### Step 1: Install Node.js Dependencies
+## Step 1: Clone the Repo
 
 ```bash
-cd constraints-app
-npm install
+git clone https://github.com/ohad-videocites/on-call-bot.git
+cd on-call-bot
 ```
-
-This will install:
-- `express` - Web server framework
-- `cors` - Cross-origin resource sharing
-
-### Step 2: Install Python Dependencies
-
-```bash
-cd ..
-pip3 install -r requirements.txt
-```
-
-This will install:
-- `pandas` - Data manipulation
-- `gspread` - Google Sheets API
-- `oauth2client` - Google authentication
-
-### Step 3: Test the Web App
-
-Start the server:
-
-```bash
-cd constraints-app
-npm start
-```
-
-You should see:
-
-```
-🚀 On-Call Constraints Server
-📍 Server running at: http://localhost:3000
-📁 Data file: ../data/constraints.json
-```
-
-Open your browser and go to: **http://localhost:3000**
-
-You should see the constraints collection interface!
-
-### Step 4: Share with Developers
-
-On your local network, find your computer's IP address:
-
-**macOS/Linux:**
-```bash
-ifconfig | grep "inet " | grep -v 127.0.0.1
-```
-
-**Windows:**
-```bash
-ipconfig
-```
-
-Share the URL with your team: `http://YOUR_IP:3000`
-
-For example: `http://192.168.1.100:3000`
 
 ---
 
-## Part 2: Google Sheets Setup
+## Step 2: Install Dependencies
 
-> 📖 **For detailed, step-by-step instructions with troubleshooting, see [SERVICE_ACCOUNT_SETUP.md](SERVICE_ACCOUNT_SETUP.md)**
+```bash
+# Node
+cd constraints-app && npm install && cd ..
 
-This section provides a quick overview. For comprehensive guidance, refer to the detailed guide.
-
-### Step 1: Create Google Cloud Project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Click **"Select a project"** → **"New Project"**
-3. Name it: `On-Call Scheduler`
-4. Click **"Create"**
-
-### Step 2: Enable Google Sheets API
-
-1. In the Cloud Console, go to **"APIs & Services"** → **"Library"**
-2. Search for **"Google Sheets API"**
-3. Click on it and press **"Enable"**
-4. Also enable **"Google Drive API"** (same process)
-
-### Step 3: Create Service Account
-
-1. Go to **"APIs & Services"** → **"Credentials"**
-2. Click **"Create Credentials"** → **"Service Account"**
-3. Fill in:
-   - **Service account name**: `on-call-scheduler`
-   - **Service account ID**: (auto-generated)
-   - **Description**: `Service account for on-call scheduling`
-4. Click **"Create and Continue"**
-5. Skip optional steps, click **"Done"**
-
-### Step 4: Download Credentials
-
-1. Find your service account in the list
-2. Click on the email address
-3. Go to the **"Keys"** tab
-4. Click **"Add Key"** → **"Create new key"**
-5. Choose **"JSON"** format
-6. Click **"Create"**
-7. The JSON file will download automatically
-8. **Rename it to `google-credentials.json`**
-9. **Move it to your `ohad_tools/` directory**
-
-⚠️ **IMPORTANT**: Keep this file secure! Don't commit it to git or share it publicly.
-
-### Step 5: Share Your Google Sheet
-
-1. Open the downloaded `google-credentials.json`
-2. Find the **"client_email"** field (looks like: `xxx@xxx.iam.gserviceaccount.com`)
-3. **Copy this email address**
-4. Open your Google Sheets spreadsheet
-5. Click **"Share"** button
-6. Paste the service account email
-7. Give it **"Editor"** access
-8. Click **"Send"**
-
-### Step 6: Get Your Spreadsheet ID
-
-From your Google Sheets URL:
+# Python
+pip install -r requirements.txt
 ```
-https://docs.google.com/spreadsheets/d/SPREADSHEET_ID_HERE/edit
-                                        ^^^^^^^^^^^^^^^^^^^
-                                        Copy this part
-```
-
-### Step 7: Create Configuration File
-
-1. Copy the template:
-   ```bash
-   cp config.json.template config.json
-   ```
-
-2. Edit `config.json`:
-   ```json
-   {
-     "spreadsheet_id": "YOUR_SPREADSHEET_ID_FROM_STEP_6",
-     "worksheet_name": "2026",
-     "credentials_file": "google-credentials.json"
-   }
-   ```
-
-3. Update the `worksheet_name` to match the tab name in your spreadsheet (e.g., "2026", "2027")
 
 ---
 
-## Part 3: Running the System
+## Step 3: Configure Slack
 
-### Complete Workflow
+```bash
+cp scheduler-config.json.template scheduler-config.json
+```
 
-#### 1. Collect Constraints (Monthly)
+Edit `scheduler-config.json`:
+```json
+{
+  "slack_webhook_team": "<your team channel webhook URL>",
+  "slack_webhook_admin": "<your personal DM webhook URL>",
+  "app_url": "http://YOUR_MACHINE_IP:3000",
+  "reminder_days": 5
+}
+```
 
-At the beginning of each month:
+> See [SLACK_SETUP.md](SLACK_SETUP.md) for how to create the webhooks.
+
+---
+
+## Step 4: Configure Google Sheets
+
+```bash
+cp config.json.template config.json
+```
+
+Edit `config.json`:
+```json
+{
+  "credentials_file": "google-credentials.json",
+  "upload_to_sheets": true
+}
+```
+
+Copy your `google-credentials.json` to the project root (never commit this file).
+
+> See [GOOGLE_SHEETS_SETUP.md](GOOGLE_SHEETS_SETUP.md) for how to create the credentials.
+
+---
+
+## Step 5: Start the Scheduler with pm2
 
 ```bash
 cd constraints-app
-npm start
+pm2 start scheduler.js --name oncall-scheduler
+pm2 save
+pm2 startup   # follow the printed command to auto-start on reboot
 ```
 
-Share the URL with your team: `http://YOUR_IP:3000`
+Check it's running:
+```bash
+pm2 status
+pm2 logs oncall-scheduler
+```
 
-Developers will:
-- Select their name
-- Pick unavailable dates
-- Choose Day/Night shifts
-- Submit constraints
+That's it — the scheduler manages everything from here.
 
-The data is automatically saved to `data/constraints.json`
+---
 
-#### 2. Generate Schedule
+## Deploying Updates
 
-When ready to generate the schedule:
+When you push changes to the repo:
 
 ```bash
-cd ..
+cd on-call-bot
+git pull
+pm2 restart oncall-scheduler
+```
+
+---
+
+## Manual Operations
+
+### Force-run schedule generation now
+```bash
+cd on-call-bot
 python3 on_call_scheduler_with_sheets.py
 ```
 
-The script will:
-1. ✅ Read constraints from `constraints.json`
-2. ✅ Generate optimized schedule
-3. ✅ Save to `shift_schedule.csv` (local backup)
-4. ✅ Upload to Google Sheets
-5. ✅ Apply developer colors automatically
-
-#### 3. Verify in Google Sheets
-
-Open your Google Sheet and check:
-- The schedule is in the correct tab (e.g., "2026")
-- Each developer has their assigned color
-- All dates are populated correctly
-
----
-
-## Configuration Options
-
-### Updating Developer List
-
-To add or remove developers, edit `server.js` lines 32-41:
-
-```javascript
-developers: {
-    "Gabriel": { email: "", restrictions: [] },
-    "Shlomi": { email: "", restrictions: [] },
-    // Add new developers here
-    "NewDeveloper": { email: "", restrictions: [] }
-}
+### Manually open/close the web app
+```bash
+cd constraints-app
+node server.js          # open
+pm2 stop oncall-scheduler   # this also stops the web server gracefully
 ```
 
-### Updating Developer Colors
-
-To change developer colors, edit `on_call_scheduler_with_sheets.py` lines 9-20:
-
-```python
-DEVELOPER_COLORS = {
-    "Omer": {"red": 0.6, "green": 0.7, "blue": 0.9},
-    # RGB values from 0 to 1
-    # Add new developer colors here
-}
+### Check current constraints
+```bash
+cat data/constraints.json
 ```
-
-Color picker tool: https://www.google.com/search?q=color+picker
-
-Convert RGB (0-255) to (0-1) by dividing by 255.
-
-### Updating Month/Year
-
-The script automatically reads dates from line 6 in `on_call_scheduler_with_sheets.py`:
-
-```python
-all_days = pd.date_range(start="2026-02-01", end="2026-02-28", freq="D")
-```
-
-Update this for each new month.
 
 ---
 
 ## Troubleshooting
 
-### Problem: "Module not found" errors
-
-**Solution**: Reinstall dependencies
-```bash
-pip3 install -r requirements.txt
-cd constraints-app && npm install
-```
-
-### Problem: "Permission denied" for Google Sheets
-
-**Solution**:
-1. Check that you shared the sheet with the service account email
-2. Verify the service account has "Editor" permissions
-3. Check that the spreadsheet ID in `config.json` is correct
-
-### Problem: "Cannot connect to server" on web app
-
-**Solution**:
-1. Make sure the server is running: `cd constraints-app && npm start`
-2. Check firewall settings allow port 3000
-3. On macOS: System Preferences → Security & Privacy → Firewall
-
-### Problem: Colors not showing in Google Sheets
-
-**Solution**:
-1. Check that all developers in the schedule are listed in `DEVELOPER_COLORS`
-2. Verify the worksheet name matches in `config.json`
-3. Make sure the service account has "Editor" access (not just "Viewer")
-
-### Problem: "File not found: constraints.json"
-
-**Solution**: The file is auto-created on first run. Just make sure:
-```bash
-mkdir -p data
-```
-
-### Problem: Script uses old hardcoded constraints
-
-**Solution**: The script tries to load from JSON first. If it fails, check:
-1. File exists at `data/constraints.json`
-2. File has valid JSON format
-3. Check console output for warnings
+| Problem | Fix |
+|---------|-----|
+| `pm2` not found | `npm install -g pm2` |
+| Slack messages not sending | Check webhooks in `scheduler-config.json` — run `node scheduler.js` to see startup output |
+| Google Sheets not updating | Run `python3 on_call_scheduler_with_sheets.py` manually to see the error |
+| Web app not reachable | Check firewall allows port 3000. Find machine IP: `hostname -I` |
+| `constraints.json` missing | Auto-created on first server start. Run `node server.js` once. |
+| Schedule generated but wrong month | Check `data/constraints.json` — `month` and `year` fields |
 
 ---
 
-## Security Best Practices
+## Security
 
-1. ✅ **Never commit `google-credentials.json` to version control**
-
-   Add to `.gitignore`:
-   ```
-   google-credentials.json
-   config.json
-   ```
-
-2. ✅ **Restrict network access** if needed (use firewall rules)
-
-3. ✅ **Rotate service account keys** periodically (every 90 days recommended)
-
-4. ✅ **Use environment variables** for production deployments
-
----
-
-## Maintenance
-
-### Monthly Checklist
-
-- [ ] Update date range in Python script
-- [ ] Clear previous month's constraints (or start fresh)
-- [ ] Share web app URL with team
-- [ ] Wait for all developers to submit
-- [ ] Run schedule generation script
-- [ ] Verify Google Sheets updated correctly
-- [ ] Share final schedule with team
-
-### Quarterly Tasks
-
-- [ ] Review and update developer list
-- [ ] Rotate Google service account keys
-- [ ] Backup historical schedules
-
----
-
-## Support & Questions
-
-If you encounter issues:
-
-1. Check the console output for error messages
-2. Review this troubleshooting section
-3. Check that all files are in the correct locations
-4. Verify all dependencies are installed
-
----
-
-## Quick Reference
-
-### Start Web App
-```bash
-cd constraints-app && npm start
-```
-
-### Generate Schedule
-```bash
-python3 on_call_scheduler_with_sheets.py
-```
-
-### View Constraints Data
-```bash
-cat data/constraints.json
-```
-
-### Check Logs
-```bash
-# Server logs appear in terminal where you ran `npm start`
-```
-
----
-
-**That's it! You're all set up.** 🎉
-
-The system is now ready to collect constraints and generate schedules automatically.
+- `google-credentials.json` — never commit, copy manually to server
+- `scheduler-config.json` — never commit, copy manually to server
+- Both are in `.gitignore`
