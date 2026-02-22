@@ -1,0 +1,6 @@
+{
+  "spreadsheet_id": "YOUR_SPREADSHEET_ID_HERE",
+  "worksheet_name": "2026",
+  "credentials_file": "google-credentials.json",
+  "upload_to_sheets": true
+}

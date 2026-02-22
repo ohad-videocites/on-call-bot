@@ -1,0 +1,6 @@
+{
+  "slack_webhook_team": "https://hooks.slack.com/services/YOUR/TEAM/WEBHOOK",
+  "slack_webhook_admin": "https://hooks.slack.com/services/YOUR/ADMIN_DM/WEBHOOK",
+  "app_url": "http://YOUR_IP_OR_DOMAIN:3000",
+  "reminder_days": 5
+}

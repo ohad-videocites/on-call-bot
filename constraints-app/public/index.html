@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>On-Call Constraints</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --blue:       #2563EB;
+            --blue-dark:  #1E40AF;
+            --blue-light: #EFF6FF;
+            --blue-mid:   #DBEAFE;
+            --green-light:#DCFCE7;
+            --bg:         #F1F5F9;
+            --white:      #FFFFFF;
+            --text:       #1E293B;
+            --muted:      #64748B;
+            --border:     #E2E8F0;
+            --success:    #10B981;
+            --danger:     #EF4444;
+            --warning:    #F59E0B;
+            --yellow:     #FEF9C3;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            color: var(--text);
+        }
+
+        /* ===================== LOGIN VIEW ===================== */
+        #login-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+        }
+
+        .login-card {
+            background: var(--white);
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            padding: 48px 40px;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .login-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .login-logo img {
+            width: 44px;
+            height: 44px;
+            object-fit: contain;
+        }
+
+        .login-logo span {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .login-subtitle {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 36px;
+        }
+
+        .login-card h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+
+        .login-card p.welcome {
+            color: var(--muted);
+            font-size: 14px;
+            margin-bottom: 28px;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            color: var(--text);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background: var(--white);
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px var(--blue-mid);
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 18px;
+            padding: 2px;
+        }
+
+        .toggle-password:hover { color: var(--blue); }
+
+        .btn-login {
+            width: 100%;
+            padding: 12px;
+            background: var(--blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-top: 8px;
+        }
+
+        .btn-login:hover { background: var(--blue-dark); }
+        .btn-login:active { transform: scale(0.99); }
+
+        .btn-login:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .login-error {
+            background: #FEE2E2;
+            color: var(--danger);
+            border: 1px solid #FECACA;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-top: 14px;
+            display: none;
+        }
+
+        .login-footer {
+            margin-top: 28px;
+            text-align: center;
+            color: rgba(255,255,255,0.65);
+            font-size: 13px;
+        }
+
+        /* ===================== APP VIEW ===================== */
+        #app-view { display: none; flex-direction: column; min-height: 100vh; }
+
+        /* Navbar */
+        .navbar {
+            background: var(--white);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+        }
+
+        .nav-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-brand img {
+            width: 36px;
+            height: 36px;
+            object-fit: contain;
+        }
+
+        .nav-brand span {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .user-pill {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--blue-light);
+            border: 1px solid var(--blue-mid);
+            border-radius: 24px;
+            padding: 6px 14px 6px 8px;
+        }
+
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: var(--blue);
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .user-info { line-height: 1.2; }
+
+        .user-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .user-email {
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        .admin-badge {
+            background: var(--blue);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-logout {
+            padding: 7px 16px;
+            background: transparent;
+            color: var(--muted);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-logout:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+            background: #FEF2F2;
+        }
+
+        /* Review mode banner */
+        .review-banner {
+            background: linear-gradient(90deg, #F59E0B, #EF4444);
+            color: white;
+            text-align: center;
+            padding: 10px 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+        }
+
+        .review-banner.active { display: block; }
+
+        /* Page content */
+        .page-content {
+            flex: 1;
+            padding: 32px;
+            max-width: 1100px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Month header card */
+        .month-card {
+            background: linear-gradient(135deg, var(--blue) 0%, var(--blue-dark) 100%);
+            border-radius: 14px;
+            padding: 24px 32px;
+            color: white;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .month-card h1 {
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+
+        .month-card p {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 4px;
+        }
+
+        .month-badge {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 10px 20px;
+            text-align: center;
+        }
+
+        .month-badge .month-name {
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .month-badge .month-year {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+
+        /* Instructions collapsible card */
+        .info-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .info-card-header {
+            padding: 14px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .info-card-header:hover { background: var(--bg); }
+
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--blue);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .info-card-toggle {
+            color: var(--muted);
+            font-size: 18px;
+            transition: transform 0.2s;
+        }
+
+        .info-card-body {
+            padding: 0 20px 16px;
+            display: none;
+            border-top: 1px solid var(--border);
+        }
+
+        .info-card-body.open { display: block; }
+
+        .info-card-body p {
+            font-size: 14px;
+            color: var(--muted);
+            line-height: 1.7;
+            padding-top: 12px;
+        }
+
+        .info-card.review-mode .info-card-header { background: #FFF7ED; }
+        .info-card.review-mode .info-card-title { color: var(--warning); }
+
+        /* Main calendar card */
+        .calendar-card {
+            background: var(--white);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .calendar-card-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .calendar-card-header h2 {
+            font-size: 17px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .calendar-card-header .hint {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        /* Stats row */
+        .stats-row {
+            display: flex;
+            gap: 1px;
+            background: var(--border);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .stat-box {
+            flex: 1;
+            background: var(--white);
+            padding: 14px 20px;
+            text-align: center;
+        }
+
+        .stat-num {
+            font-size: 26px;
+            font-weight: 800;
+            color: var(--blue);
+        }
+
+        .stat-lbl {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* Table */
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .calendar-table thead th {
+            padding: 12px 16px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--muted);
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg);
+        }
+
+        .calendar-table thead th.night-col { background: var(--blue-mid); color: var(--blue-dark); text-align: center; }
+        .calendar-table thead th.day-col   { background: var(--green-light); color: #166534; text-align: center; }
+
+        .calendar-table tbody tr { border-bottom: 1px solid var(--border); }
+        .calendar-table tbody tr:last-child { border-bottom: none; }
+        .calendar-table tbody tr:hover:not(.special) { background: var(--bg); }
+
+        .calendar-table td {
+            padding: 10px 16px;
+            font-size: 14px;
+        }
+
+        .day-num {
+            font-weight: 700;
+            color: var(--blue);
+            font-size: 16px;
+            width: 48px;
+            text-align: center;
+        }
+
+        .day-label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .special { background: var(--yellow) !important; }
+        .special .day-label::after { content: ' ⭐'; }
+
+        .shift-cell {
+            text-align: center;
+        }
+
+        .check-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            transition: background 0.15s;
+        }
+
+        .check-wrap:has(input:checked) { background: #BFDBFE; }
+
+        .check-wrap input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--blue);
+        }
+
+        .check-wrap input:disabled { cursor: not-allowed; opacity: 0.5; }
+
+        /* Buttons */
+        .card-footer {
+            padding: 20px 24px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 12px;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            padding: 10px 22px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: var(--blue);
+            color: white;
+        }
+
+        .btn-primary:hover { background: var(--blue-dark); }
+        .btn-primary:active { transform: scale(0.98); }
+
+        .btn-ghost {
+            background: transparent;
+            color: var(--muted);
+            border: 1.5px solid var(--border);
+        }
+
+        .btn-ghost:hover { border-color: var(--danger); color: var(--danger); background: #FEF2F2; }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+        }
+
+        .btn-danger:hover { background: #DC2626; }
+
+        /* Admin toolbar inside calendar card */
+        .admin-toolbar {
+            display: none;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 24px;
+            border-bottom: 1px solid var(--border);
+            background: var(--blue-light);
+        }
+
+        .admin-toolbar.visible { display: flex; }
+
+        .admin-toolbar label {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--blue-dark);
+            white-space: nowrap;
+        }
+
+        .admin-toolbar select {
+            flex: 1;
+            max-width: 280px;
+            padding: 8px 12px;
+            border: 1.5px solid var(--blue-mid);
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            cursor: pointer;
+        }
+
+        .admin-toolbar select:focus {
+            outline: none;
+            border-color: var(--blue);
+            box-shadow: 0 0 0 3px var(--blue-mid);
+        }
+
+        /* Messages */
+        .toast {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            padding: 14px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 999;
+            display: none;
+            animation: slideIn 0.3s ease;
+            max-width: 340px;
+        }
+
+        .toast.success { background: var(--success); color: white; }
+        .toast.error   { background: var(--danger);  color: white; }
+
+        @keyframes slideIn {
+            from { transform: translateX(100px); opacity: 0; }
+            to   { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Loading */
+        .loading-row td {
+            text-align: center;
+            padding: 40px;
+            color: var(--muted);
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--blue);
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 12px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--muted);
+        }
+
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+        .empty-state h3 { font-size: 18px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+        .empty-state p  { font-size: 14px; }
+
+        /* Connection dot */
+        .conn-dot {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 50;
+        }
+
+        .conn-dot.ok   { background: var(--success); color: white; }
+        .conn-dot.fail { background: var(--danger);  color: white; }
+        .conn-dot.wait { background: var(--warning); color: white; }
+
+        .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%; background: white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.4; } }
+
+        /* Footer */
+        .app-footer {
+            text-align: center;
+            padding: 24px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .app-footer strong { color: var(--blue); }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .page-content { padding: 16px; }
+            .navbar { padding: 0 16px; }
+            .month-card { flex-direction: column; gap: 16px; align-items: flex-start; }
+            .nav-brand span { display: none; }
+            .user-email { display: none; }
+            .calendar-table thead th, .calendar-table td { padding: 8px 8px; font-size: 13px; }
+            .login-card { padding: 32px 24px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ===================== LOGIN VIEW ===================== -->
+<div id="login-view">
+    <div class="login-card">
+        <div class="login-logo">
+            <img src="ripple-icon.jpg" alt="Logo">
+            <span>On-Call Constraints</span>
+        </div>
+        <p class="login-subtitle">Sign in to submit your availability</p>
+
+        <h2>Welcome back</h2>
+        <p class="welcome">Enter your credentials to continue</p>
+
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="emailInput">Email address</label>
+                <input type="email" id="emailInput" placeholder="you@company.com" autocomplete="email" required>
+            </div>
+            <div class="form-group">
+                <label for="passwordInput">Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="passwordInput" placeholder="••••••••" autocomplete="current-password" required>
+                    <button type="button" class="toggle-password" onclick="togglePwd()" title="Show/hide password">👁</button>
+                </div>
+            </div>
+            <button type="submit" class="btn-login" id="loginBtn">Sign In</button>
+            <div class="login-error" id="loginError"></div>
+        </form>
+    </div>
+    <div class="login-footer">Created by <strong style="color:white;">Ohad The PRO</strong></div>
+</div>
+
+<!-- ===================== APP VIEW ===================== -->
+<div id="app-view">
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <img src="ripple-icon.jpg" alt="Logo">
+            <span>On-Call Constraints</span>
+        </div>
+        <div class="nav-right">
+            <div class="user-pill">
+                <div class="user-avatar" id="userAvatar">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-email" id="userEmail"></div>
+                </div>
+                <span class="admin-badge" id="adminBadge" style="display:none;">Admin</span>
+            </div>
+            <button class="btn-logout" onclick="logout()">Sign Out</button>
+        </div>
+    </nav>
+
+    <!-- Review Mode Banner -->
+    <div class="review-banner" id="reviewBanner">
+        🔒 Review Mode — Submission period has closed. View only, no changes allowed.
+    </div>
+
+    <!-- Page Content -->
+    <div class="page-content">
+
+        <!-- Month Header -->
+        <div class="month-card">
+            <div>
+                <h1>Availability Constraints</h1>
+                <p>Mark the shifts you are <strong>not available</strong> for next month</p>
+            </div>
+            <div class="month-badge">
+                <div class="month-name" id="monthName">—</div>
+                <div class="month-year" id="monthYear">Loading...</div>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="info-card" id="infoCard">
+            <div class="info-card-header" onclick="toggleInfo()">
+                <span class="info-card-title">📝 How to use</span>
+                <span class="info-card-toggle" id="infoToggle">›</span>
+            </div>
+            <div class="info-card-body" id="infoBody">
+                <p>
+                    1️⃣ The calendar is pre-loaded with your name.<br>
+                    2️⃣ Tick the checkboxes for shifts you are <strong>NOT available</strong>.<br>
+                    &nbsp;&nbsp;&nbsp;&nbsp;🌙 <strong>Night Shift</strong> = 00:00 – 08:59 &nbsp;|&nbsp; 🌅 <strong>Day Shift</strong> = 09:00 – 23:59<br>
+                    3️⃣ Click <strong>Save Constraints</strong> when done.<br>
+                    ⭐ <strong>Yellow rows</strong> = Friday / Saturday / Israeli holidays.
+                </p>
+            </div>
+        </div>
+
+        <!-- Calendar card (shown after developer loaded) -->
+        <div class="calendar-card" id="calendarCard" style="display:none;">
+
+            <div class="calendar-card-header">
+                <h2 id="calendarTitle">Calendar</h2>
+                <span class="hint">Check shifts you are <strong>not</strong> available for</span>
+            </div>
+
+            <!-- Admin developer selector (inside card, above table) -->
+            <div class="admin-toolbar" id="adminToolbar">
+                <label>🛡️ Developer:</label>
+                <select id="adminDevSelect" onchange="onAdminDevChange()">
+                    <option value="">-- Choose a developer --</option>
+                </select>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-num" id="totalCount">0</div>
+                    <div class="stat-lbl">Total</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num" id="nightCount">0</div>
+                    <div class="stat-lbl">Night Shifts</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-num" id="dayCount">0</div>
+                    <div class="stat-lbl">Day Shifts</div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div style="overflow-x:auto;">
+                <table class="calendar-table" id="calendarGrid">
+                    <thead>
+                        <tr>
+                            <th style="width:56px; text-align:center;">Day</th>
+                            <th style="width:120px;">Date</th>
+                            <th class="night-col" style="width:140px;">🌙 Night<br><small style="font-weight:400;text-transform:none;letter-spacing:0;">00:00–08:59</small></th>
+                            <th class="day-col"   style="width:140px;">🌅 Day<br><small style="font-weight:400;text-transform:none;letter-spacing:0;">09:00–23:59</small></th>
+                        </tr>
+                    </thead>
+                    <tbody id="calendarBody">
+                        <tr class="loading-row"><td colspan="4"><div class="spinner"></div><div>Loading...</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Footer buttons -->
+            <div class="card-footer" id="cardFooter">
+                <button class="btn btn-danger" id="resetAllBtn" onclick="resetAllDevs()" style="display:none; margin-right:auto;">Reset All Developers</button>
+                <button class="btn btn-ghost" onclick="clearAll()">Clear All</button>
+                <button class="btn btn-primary" onclick="saveConstraints()">Save Constraints</button>
+            </div>
+        </div>
+
+        <!-- Empty state (admin, no developer selected) -->
+        <div class="empty-state" id="emptyState" style="display:none;">
+            <div class="icon">👆</div>
+            <h3>Select a developer above to view their calendar</h3>
+            <p>Use the dropdown in the calendar card to choose which developer's constraints to edit.</p>
+        </div>
+
+    </div><!-- /page-content -->
+
+    <footer class="app-footer">Created by <strong>Ohad The PRO</strong></footer>
+</div><!-- /app-view -->
+
+<!-- Toast notifications -->
+<div class="toast success" id="toastSuccess"></div>
+<div class="toast error"   id="toastError"></div>
+
+<!-- Connection dot -->
+<div class="conn-dot wait" id="connDot">
+    <div class="dot"></div>
+    <span id="connText">Connecting</span>
+</div>
+
+<script>
+    const API_URL = `http://${window.location.hostname}:3000/api`;
+
+    let currentUser    = null;
+    let currentDev     = '';
+    let monthData      = null;
+    let selectedCons   = new Set();
+    let isReviewMode   = false;
+
+    // ===================== AUTH =====================
+
+    async function checkSession() {
+        try {
+            const r = await fetch(`${API_URL}/auth/me`, { credentials: 'include' });
+            if (r.ok) {
+                currentUser = await r.json();
+                showApp();
+            } else {
+                showLogin();
+            }
+        } catch {
+            showLogin();
+        }
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+        e.preventDefault();
+        const btn = document.getElementById('loginBtn');
+        const errEl = document.getElementById('loginError');
+        errEl.style.display = 'none';
+        btn.disabled = true;
+        btn.textContent = 'Signing in...';
+
+        try {
+            const r = await fetch(`${API_URL}/auth/login`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    email: document.getElementById('emailInput').value,
+                    password: document.getElementById('passwordInput').value
+                })
+            });
+            const data = await r.json();
+            if (r.ok) {
+                currentUser = data;
+                showApp();
+            } else {
+                errEl.textContent = data.error || 'Invalid email or password';
+                errEl.style.display = 'block';
+            }
+        } catch {
+            errEl.textContent = 'Cannot connect to server. Is it running?';
+            errEl.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Sign In';
+        }
+    });
+
+    async function logout() {
+        await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+        currentUser = null;
+        currentDev  = '';
+        showLogin();
+    }
+
+    function togglePwd() {
+        const inp = document.getElementById('passwordInput');
+        inp.type = inp.type === 'password' ? 'text' : 'password';
+    }
+
+    // ===================== VIEW SWITCHING =====================
+
+    function showLogin() {
+        document.getElementById('login-view').style.display = 'flex';
+        document.getElementById('app-view').style.display   = 'none';
+    }
+
+    async function showApp() {
+        document.getElementById('login-view').style.display = 'none';
+        document.getElementById('app-view').style.display   = 'flex';
+
+        // Fill navbar
+        const initials = currentUser.isAdmin ? 'AD' : currentUser.developer.substring(0, 2).toUpperCase();
+        document.getElementById('userAvatar').textContent = initials;
+        document.getElementById('userName').textContent   = currentUser.isAdmin ? 'Admin' : currentUser.developer;
+        document.getElementById('userEmail').textContent  = currentUser.email;
+        document.getElementById('adminBadge').style.display = currentUser.isAdmin ? 'inline' : 'none';
+
+        await checkReviewMode();
+        await loadMonth();
+
+        if (currentUser.isAdmin) {
+            // Admin: show calendar card with toolbar, show empty state until dev is picked
+            document.getElementById('calendarCard').style.display = 'block';
+            document.getElementById('adminToolbar').classList.add('visible');
+            document.getElementById('resetAllBtn').style.display = 'inline-flex';
+            document.getElementById('emptyState').style.display  = 'block';
+            // Hide table and footer until a developer is selected
+            document.getElementById('calendarBody').closest('div').style.display = 'none';
+            document.querySelector('.stats-row').style.display = 'none';
+            document.getElementById('cardFooter').style.display = 'none';
+            await loadAdminDevList();
+        } else {
+            // Regular user: auto-load their own calendar
+            currentDev = currentUser.developer;
+            await loadAndShowCalendar();
+        }
+
+        setInterval(pingServer, 30000);
+    }
+
+    // ===================== REVIEW MODE =====================
+
+    async function checkReviewMode() {
+        try {
+            const r = await fetch(`${API_URL}/review-mode`, { credentials: 'include' });
+            const d = await r.json();
+            isReviewMode = d.reviewMode;
+            if (isReviewMode) {
+                document.getElementById('reviewBanner').classList.add('active');
+                const ic = document.getElementById('infoCard');
+                ic.classList.add('review-mode');
+                document.querySelector('.info-card-title').textContent = '🔒 Review Mode';
+                const ib = document.getElementById('infoBody');
+                ib.innerHTML = '<p>Submission period has closed. You can view your constraints but <strong>cannot make changes</strong>.<br>Contact the administrator if you need urgent updates.</p>';
+                ib.style.display = 'block';
+                document.getElementById('infoToggle').style.display = 'none';
+                document.getElementById('cardFooter').style.display = 'none';
+            }
+        } catch { /* ignore */ }
+    }
+
+    // ===================== MONTH =====================
+
+    async function loadMonth() {
+        try {
+            const r = await fetch(`${API_URL}/month`, { credentials: 'include' });
+            monthData = await r.json();
+            const names = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+            document.getElementById('monthName').textContent = names[monthData.month - 1];
+            document.getElementById('monthYear').textContent = monthData.year;
+        } catch { /* ignore */ }
+    }
+
+    // ===================== ADMIN DEV LIST =====================
+
+    async function loadAdminDevList() {
+        const r = await fetch(`${API_URL}/developers`, { credentials: 'include' });
+        const devs = await r.json();
+        const sel = document.getElementById('adminDevSelect');
+        const prev = sel.value; // preserve selection across refreshes
+        sel.innerHTML = '<option value="">-- Choose a developer --</option>';
+        devs.forEach(d => {
+            const o = document.createElement('option');
+            o.value = d.name;
+            o.textContent = `${d.name} (${d.restrictionCount} constraints)`;
+            sel.appendChild(o);
+        });
+        if (prev) sel.value = prev;
+    }
+
+    function onAdminDevChange() {
+        currentDev = document.getElementById('adminDevSelect').value;
+        if (currentDev) {
+            document.getElementById('emptyState').style.display = 'none';
+            // Reveal table + stats + footer
+            document.getElementById('calendarBody').closest('div').style.display = 'block';
+            document.querySelector('.stats-row').style.display = 'flex';
+            document.getElementById('cardFooter').style.display = 'flex';
+            loadAndShowCalendar();
+        } else {
+            document.getElementById('emptyState').style.display = 'block';
+            document.getElementById('calendarBody').closest('div').style.display = 'none';
+            document.querySelector('.stats-row').style.display = 'none';
+            document.getElementById('cardFooter').style.display = 'none';
+        }
+    }
+
+    async function resetAllDevs() {
+        if (!confirm('⚠️ Reset ALL constraints for ALL developers?\n\nThis will permanently clear everyone\'s selections. This cannot be undone.')) return;
+
+        const btn = document.getElementById('resetAllBtn');
+        btn.disabled = true;
+        btn.textContent = 'Resetting...';
+
+        try {
+            const r = await fetch(`${API_URL}/developers`, { credentials: 'include' });
+            const devs = await r.json();
+
+            for (const dev of devs) {
+                await fetch(`${API_URL}/constraints/${dev.name}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+            }
+
+            // Refresh state
+            selectedCons.clear();
+            if (currentDev) generateCalendar();
+            await loadAdminDevList();
+            showToast('success', `✓ All constraints cleared for ${devs.length} developers`);
+        } catch {
+            showToast('error', 'Failed to reset constraints');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Reset All Developers';
+        }
+    }
+
+    // ===================== CALENDAR =====================
+
+    async function loadAndShowCalendar() {
+        document.getElementById('calendarCard').style.display = 'block';
+        document.getElementById('calendarTitle').textContent = `${currentDev}'s Availability — ${getMonthName()}`;
+
+        // Load constraints
+        const r = await fetch(`${API_URL}/constraints/${currentDev}`, { credentials: 'include' });
+        const d = await r.json();
+        selectedCons = new Set(d.restrictions || []);
+
+        generateCalendar();
+    }
+
+    function getMonthName() {
+        if (!monthData) return '';
+        const names = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        return `${names[monthData.month-1]} ${monthData.year}`;
+    }
+
+    function generateCalendar() {
+        if (!monthData) return;
+        const tbody = document.getElementById('calendarBody');
+        tbody.innerHTML = '';
+
+        const { year, month } = monthData;
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+        const israeliHolidays = [
+            '14/04','15/04','04/05','05/05','25/05',
+            '13/09','14/09','22/09',
+            '27/09','28/09','29/09','30/09','01/10','02/10','03/10','04/10'
+        ];
+
+        for (let day = 1; day <= daysInMonth; day++) {
+            const date    = new Date(year, month - 1, day);
+            const dow     = dayNames[date.getDay()];
+            const dateStr = `${String(day).padStart(2,'0')}/${String(month).padStart(2,'0')}`;
+            const nightC  = `${dateStr} Night`;
+            const dayC    = `${dateStr} Day`;
+
+            const special = date.getDay() === 5 || date.getDay() === 6 || israeliHolidays.includes(dateStr);
+
+            const tr = document.createElement('tr');
+            if (special) tr.classList.add('special');
+
+            const dis = isReviewMode ? 'disabled' : '';
+
+            tr.innerHTML = `
+                <td class="day-num">${day}</td>
+                <td><span class="day-label">${dow}</span></td>
+                <td class="shift-cell">
+                    <label class="check-wrap">
+                        <input type="checkbox" ${selectedCons.has(nightC) ? 'checked' : ''} ${dis}
+                               onchange="toggle('${nightC}', this)">
+                    </label>
+                </td>
+                <td class="shift-cell">
+                    <label class="check-wrap">
+                        <input type="checkbox" ${selectedCons.has(dayC) ? 'checked' : ''} ${dis}
+                               onchange="toggle('${dayC}', this)">
+                    </label>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        }
+        updateStats();
+    }
+
+    function toggle(constraint, cb) {
+        if (isReviewMode) { cb.checked = !cb.checked; return; }
+        cb.checked ? selectedCons.add(constraint) : selectedCons.delete(constraint);
+        updateStats();
+    }
+
+    function updateStats() {
+        const all   = Array.from(selectedCons);
+        const night = all.filter(c => c.includes('Night')).length;
+        const day   = all.filter(c => c.includes('Day')).length;
+        document.getElementById('totalCount').textContent = all.length;
+        document.getElementById('nightCount').textContent = night;
+        document.getElementById('dayCount').textContent   = day;
+    }
+
+    function clearAll() {
+        if (isReviewMode) return;
+        if (!confirm('Clear all constraint selections?')) return;
+        selectedCons.clear();
+        document.querySelectorAll('#calendarBody input[type=checkbox]').forEach(cb => cb.checked = false);
+        updateStats();
+    }
+
+    async function saveConstraints() {
+        if (isReviewMode) return;
+        if (!currentDev) return;
+
+        const btn = document.querySelector('.btn-primary');
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            await fetch(`${API_URL}/constraints/${currentDev}`, { method: 'DELETE', credentials: 'include' });
+
+            for (const c of selectedCons) {
+                await fetch(`${API_URL}/constraints/${currentDev}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ restriction: c })
+                });
+            }
+
+            showToast('success', `✓ ${selectedCons.size} constraints saved!`);
+
+            // Refresh admin dropdown count
+            if (currentUser.isAdmin) loadAdminDevList();
+
+        } catch {
+            showToast('error', 'Failed to save. Please try again.');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Save Constraints';
+        }
+    }
+
+    // ===================== INSTRUCTIONS TOGGLE =====================
+    function toggleInfo() {
+        const body   = document.getElementById('infoBody');
+        const toggle = document.getElementById('infoToggle');
+        const open   = body.classList.toggle('open');
+        toggle.style.transform = open ? 'rotate(90deg)' : '';
+    }
+
+    // ===================== TOASTS =====================
+    function showToast(type, msg) {
+        const el = document.getElementById(type === 'success' ? 'toastSuccess' : 'toastError');
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => { el.style.display = 'none'; }, 3500);
+    }
+
+    // ===================== CONNECTION DOT =====================
+    async function pingServer() {
+        const dot  = document.getElementById('connDot');
+        const text = document.getElementById('connText');
+        try {
+            const r = await fetch(`http://${window.location.hostname}:3000/health`);
+            if (r.ok) {
+                dot.className  = 'conn-dot ok';
+                text.textContent = 'Connected';
+                return;
+            }
+        } catch { /* fall through */ }
+        dot.className  = 'conn-dot fail';
+        text.textContent = 'Disconnected';
+    }
+
+    // ===================== BOOT =====================
+    pingServer();
+    checkSession();
+</script>
+</body>
+</html>
